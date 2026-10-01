@@ -1,13 +1,16 @@
-import {getAll, getById, addPost} from "../repositories/post.js";
+import type { PostRepository } from "../domain/post/repository.js";
+import type { PostService } from "./repository.js";
 
-export function getPosts(category, take) {
-  return getAll(category, take);
-}
-
-export function getPostById(id) {
-  return getById(id);
-}
-
-export function createPost(post) {
-  return addPost(post);
+export function createPostService(postRepository: PostRepository): PostService {
+    return {
+        getPosts(category, take) {
+            return postRepository.getAll(category, take);
+        },
+        getPostById(id) {
+            return postRepository.getById(id);
+        },
+        createPost(post) {
+            return postRepository.addPost(post);
+        }
+    };
 }
