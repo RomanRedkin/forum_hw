@@ -1,59 +1,34 @@
 import type { Post } from "../domain/post/entity.js";
 import type { PostRepository } from "../domain/post/repository.js";
+import { db } from "../prisma/db.js";
 
 
-export function createPostRepository(): PostRepository {
-    let posts: Post[] = [
-        {
-            id: 1,
-            title: "iphone",
-            content: "как пользоваться",
-            author: "Roma",
-            category: "electronics",
-        },
-        {
-            id: 2,
-            title: "t-shirt",
-            content: "классная футболка",
-            author: "Atrem",
-            category: "clothing",
-        },
-        {
-            id: 3,
-            title: "android",
-            content: "как пользоваться",
-            author: "Roma",
-            category: "electronics",
-        }
-    ];
+export function createPostRepository(database: any): PostRepository {
     return {
         getAll(category, take) {
-            let result = posts;
-
-            if (category) {
-                result = result.filter((post) => post.category === category);
+            let query = database.orm.public.Post
+            if (category !== undefined) {
+                query = query.where({ category })
             }
-
-            if (!take) {
-                return result;
+            if (take !== undefined) {
+                query = query.limit(take)
             }
-
-            result = result.slice(0, take);
-            return result;
+            return query.all() as unknown as Post[]
         },
 
         getById(id) {
-            return posts.find((post) => post.id === id);
+            const post = database.orm.public.Post.where({ id }).first()
+            return post as unknown as Post | undefined
         },
 
         async addPost(post) {
-            const newPost = {
-                id: posts.length + 1,
-                ...post,
-            };
-
-            posts = [...posts, newPost];
-            return newPost;
+            const newPost = await database.orm.public.Post.create({
+                title: post.title,
+                content: post.content,
+                author: post.author,
+                category: post.category,
+            })
+            return newPost as unknown as Post
         }
     }
 } 
