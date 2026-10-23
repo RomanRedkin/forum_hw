@@ -1,34 +1,105 @@
-import type { Post } from "../domain/post/entity.js";
-import type { PostRepository } from "../domain/post/repository.js";
-import { db } from "../prisma/db.js";
+import type { PostgresClient } from "@prisma/orm-postgres/runtime";
+import type { Post, Category } from "../domain/post/entity.js";
+import type { Contract } from "../prisma/contract.d.js";
 
 
-export function createPostRepository(database: any): PostRepository {
+
+const formatPostResponse = (postItem: any): Post => {
     return {
-        getAll(category, take) {
-            let query = database.orm.public.Post
-            if (category !== undefined) {
-                query = query.where({ category })
+        id: postItem.id,
+        title: postItem.title,
+        content: postItem.content,
+        author: postItem.author,
+        categoryId: postItem.categoryId,
+        ...(postItem.category && {
+            category: {
+                id: postItem.category.id,
+                name: postItem.category.name,
+            },
+        }),
+    };
+};
+// Не работает с PostgresClient<Contract>
+export function createPostRepository(db: any) {
+    return {
+        async getAll(categoryName?: string, take?: number): Promise<Post[]> {
+            if (categoryName) {
+                const categoryWithPosts = await db.orm.Category.findUnique({
+                    where: { name: categoryName },
+                    include: {
+                        posts: {
+                            take,
+                            include: { category: true },
+                        },
+                    },
+                });
+
+                return (categoryWithPosts?.posts || []).map((postItem: any) => formatPostResponse(postItem));
             }
-            if (take !== undefined) {
-                query = query.limit(take)
-            }
-            return query.all() as unknown as Post[]
+
+            const allPosts = await db.orm.Post.findMany({
+                take,
+                include: { category: true },
+            });
+
+            return allPosts.map((postItem: any) => formatPostResponse(postItem));
         },
 
-        getById(id) {
-            const post = database.orm.public.Post.where({ id }).first()
-            return post as unknown as Post | undefined
+        async getById(id: number): Promise<Post | null> {
+            const foundPost = await db.orm.Post.findUnique({
+                where: { id },
+                include: { category: true },
+            });
+
+            return foundPost ? formatPostResponse(foundPost) : null;
         },
 
-        async addPost(post) {
-            const newPost = await database.orm.public.Post.create({
-                title: post.title,
-                content: post.content,
-                author: post.author,
-                category: post.category,
-            })
-            return newPost as unknown as Post
-        }
-    }
-} 
+        async addPost(post: Omit<Post, "id" | "category">): Promise<Post> {
+            try {
+                const createdPost = await db.orm.Post.create({
+                    data: post,
+                    include: { category: true },
+                });
+
+                return formatPostResponse(createdPost);
+            } catch (error: any) {
+                if (["P2003", "P2025"].includes(error?.code)) {
+                    throw new Error("CATEGORY_NOT_FOUND");
+                }
+                throw error;
+            }
+        },
+
+        async getAllCategories(): Promise<Category[]> {
+            const allCategories = await db.orm.Category.findMany({
+                select: {
+                    id: true,
+                    name: true,
+                },
+            });
+
+            return allCategories.map((categoryItem: any) => ({
+                id: categoryItem.id,
+                name: categoryItem.name,
+            }));
+        },
+
+        async addCategory(category: Omit<Category, "id">): Promise<Category> {
+            try {
+                const createdCategory = await db.orm.Category.create({
+                    data: category,
+                });
+
+                return {
+                    id: createdCategory.id,
+                    name: createdCategory.name,
+                };
+            } catch (error: any) {
+                if (error?.code === "P2002") {
+                    throw new Error("CATEGORY_ALREADY_EXISTS");
+                }
+                throw error;
+            }
+        },
+    };
+}

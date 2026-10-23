@@ -8,6 +8,9 @@ export function createPostRouter(handlers: PostHandlers) {
     router.get("/posts/:id", handlers.getPostByIdHandler);
     router.post("/posts", handlers.createPostHandler);
 
+    router.get("/categories", handlers.getCategoriesHandler);
+    router.post("/categories", handlers.createCategoryHandler);
+    
     return router;
 }
 

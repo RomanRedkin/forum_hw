@@ -5,7 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
+    "start": "ts-node src/server.ts",
     "contract:emit": "prisma contract emit"
   },
   "keywords": [],
@@ -22,6 +22,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.3",
     "prisma": "^8.0.0-rc.22",
+    "ts-node": "^10.9.2",
     "typescript": "^7.0.2"
   }
 }
